@@ -1,26 +1,17 @@
-
 "use client";
 
 import { useCart } from "@/context/CartContext";
 
 export default function CartSection() {
   // Warenkorbdaten und Funktionen abrufen.
-  const {
-    items,
-    addItem,
-    decreaseItem,
-    removeItem,
-    totalPrice,
-  } = useCart();
+  const { items, addItem, decreaseItem, removeItem, totalPrice } = useCart();
 
   return (
     <section
       id="warenkorb"
-      className="mx-auto max-w-6xl px-5 py-10"
+      className="mx-auto max-w-6xl scroll-mt-28 px-5 py-10"
     >
-      <h2 className="mb-6 text-2xl font-bold">
-        Dein Warenkorb
-      </h2>
+      <h2 className="mb-6 text-2xl font-bold">Dein Warenkorb</h2>
 
       {/* Hinweis, wenn noch keine Produkte enthalten sind */}
       {items.length === 0 ? (
@@ -38,8 +29,7 @@ export default function CartSection() {
                 <div>
                   <h3 className="font-bold">{item.name}</h3>
                   <p className="mt-1 text-sm text-white/50">
-                    {item.price.toFixed(2).replace(".", ",")} €
-                    pro Stück
+                    {item.price.toFixed(2).replace(".", ",")} € pro Stück
                   </p>
                 </div>
 
@@ -63,9 +53,7 @@ export default function CartSection() {
                     −
                   </button>
 
-                  <span className="font-bold">
-                    {item.quantity}
-                  </span>
+                  <span className="font-bold">{item.quantity}</span>
 
                   <button
                     type="button"
@@ -77,9 +65,7 @@ export default function CartSection() {
                 </div>
 
                 <p className="font-bold">
-                  {(item.price * item.quantity)
-                    .toFixed(2)
-                    .replace(".", ",")} €
+                  {(item.price * item.quantity).toFixed(2).replace(".", ",")} €
                 </p>
               </div>
             </article>

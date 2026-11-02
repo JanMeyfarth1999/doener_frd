@@ -131,7 +131,10 @@ export default function CheckoutSection() {
   }
 
   return (
-    <section id="checkout" className="mx-auto max-w-6xl px-5 py-10">
+    <section
+      id="checkout"
+      className="mx-auto max-w-6xl scroll-mt-28 px-5 py-10"
+    >
       <h2 className="text-2xl font-bold">Bestellung abschließen</h2>
 
       {/* Bestellart */}
