@@ -24,6 +24,12 @@ export default function CheckoutSection() {
   // null bedeutet: Es gibt noch keine Bestätigung.
   const [completedOrder, setCompletedOrder] = useState<DemoOrder | null>(null);
 
+  // Verhindert doppelte Bestellungen während des Speicherns.
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Zeigt Fehler beim Abschicken an.
+  const [submitError, setSubmitError] = useState("");
+
   // Zentral gespeicherter Mindestbestellwert.
   const minimumOrder = DELIVERY_MINIMUM;
 
@@ -66,50 +72,72 @@ export default function CheckoutSection() {
         city.trim().length > 0 &&
         missingAmount === 0));
 
-  // Erstellt eine Demo-Bestellung ohne Daten zu versenden.
-  function completeDemoOrder() {
-    // Nur bei vollständigen Angaben fortfahren.
-    if (!canContinue) return;
-
-    // Bei Lieferung muss die Gebühr bekannt sein.
-    if (orderType === "delivery" && deliveryFee === null) {
+  // Übermittelt eine Abholbestellung an unsere geschützte Serverlogik.
+  async function completeDemoOrder() {
+    if (!canContinue || isSubmitting || orderType !== "pickup") {
       return;
     }
 
-    const demoOrder: DemoOrder = {
-      // Einfache Bestellnummer für unsere Demo.
+    setIsSubmitting(true);
+    setSubmitError("");
 
-      orderNumber: `DEMO-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
+    try {
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderType: "pickup",
+          name: name.trim(),
+          phone: phone.trim(),
 
-      customerName: name.trim(),
-      orderType,
+          // Nur Produkt-IDs und Mengen senden.
+          // Der Server berechnet die Preise selbst.
+          items: items.map((item) => ({
+            id: item.id,
+            quantity: item.quantity,
+          })),
+        }),
+      });
 
-      // Momentanen Warenkorb als Kopie übernehmen.
-      items: items.map((item) => ({
-        id: item.id,
-        name: item.name,
-        quantity: item.quantity,
-        price: item.price,
-      })),
+      const result = await response.json();
 
-      // Warenwert ohne Lieferkosten.
-      subtotal: totalPrice,
+      if (!response.ok) {
+        throw new Error(
+          result.error ?? "Bestellung konnte nicht gespeichert werden.",
+        );
+      }
 
-      // Liefergebühr, bei Abholung immer 0 €.
-      deliveryFee: deliveryFee ?? 0,
+      // Bestätigung mit der echten Datenbank-Bestellnummer.
+      const completed: DemoOrder = {
+        orderNumber: result.orderId,
+        customerName: name.trim(),
+        orderType: "pickup",
 
-      // Gesamtbetrag inklusive Liefergebühren.
-      total: finalTotal,
-    };
+        items: items.map((item) => ({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+        })),
 
-    // Bestätigung speichern und anzeigen.
-    setCompletedOrder(demoOrder);
+        subtotal: totalPrice,
+        deliveryFee: 0,
+        total: result.total,
+      };
 
-    // Nach dem Bestellabschluss zum Checkout-Bereich springen.
-    document.getElementById("checkout")?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+      // Bestätigung erst nach erfolgreicher Speicherung anzeigen.
+      setCompletedOrder(completed);
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : "Bestellung konnte nicht abgeschickt werden.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   // Setzt die Demo für eine neue Bestellung zurück.
@@ -460,19 +488,21 @@ export default function CheckoutSection() {
         </div>
       </div>
 
-      {/* Demo-Bestellung abschließen */}
+      {/* Bestellung an den Server übermitteln */}
       <button
         type="button"
-        onClick={completeDemoOrder}
-        disabled={
-          !canContinue || (orderType === "delivery" && deliveryFee === null)
-        }
+        onClick={() => void completeDemoOrder()}
+        disabled={!canContinue || isSubmitting || orderType !== "pickup"}
         className="mt-6 flex min-h-16 w-full items-center justify-between gap-3 rounded-2xl bg-[#B5F28B] px-5 text-left font-black text-[#0C100D] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
       >
         <span>
-          {canContinue
-            ? "DEMO-BESTELLUNG ABSCHLIESSEN"
-            : "ANGABEN VERVOLLSTÄNDIGEN"}
+          {isSubmitting
+            ? "BESTELLUNG WIRD GESPEICHERT..."
+            : orderType === "delivery"
+              ? "LIEFERUNG NOCH NICHT VERFÜGBAR"
+              : canContinue
+                ? "TESTBESTELLUNG ABSCHICKEN"
+                : "ANGABEN VERVOLLSTÄNDIGEN"}
         </span>
 
         <span className="text-2xl" aria-hidden="true">
@@ -480,8 +510,15 @@ export default function CheckoutSection() {
         </span>
       </button>
 
+      {submitError && (
+        <p role="alert" className="mt-3 text-sm text-red-400">
+          {submitError}
+        </p>
+      )}
+
       <p className="mt-3 text-center text-xs text-white/40">
-        Demo-Version: Es werden noch keine Bestellungen versendet.
+        Testbetrieb: Abholbestellungen werden in der Demo-Datenbank gespeichert.
+        Bitte keine echten Kundenbestellungen aufgeben.
       </p>
     </section>
   );
