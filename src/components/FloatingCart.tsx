@@ -23,15 +23,13 @@ export default function FloatingCart() {
   }
 
   // Schließt den Warenkorb und öffnet den Checkout.
+
   function goToCheckout() {
+    // Warenkorb schließen.
     setIsCartOpen(false);
 
-    requestAnimationFrame(() => {
-      document.getElementById("checkout")?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    });
+    // Checkout als eigene Ansicht öffnen.
+    window.dispatchEvent(new CustomEvent("open-checkout"));
   }
 
   return (

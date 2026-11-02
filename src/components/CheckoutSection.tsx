@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCart } from "@/context/CartContext";
 import { useOrder } from "@/context/OrderContext";
 import { calculateDeliveryFee, DELIVERY_MINIMUM } from "@/lib/delivery";
@@ -32,6 +32,22 @@ export default function CheckoutSection() {
   // Entfernung für die Demo auswählen.
   // Später wird sie automatisch aus der Adresse berechnet.
   const [demoDistanceKm, setDemoDistanceKm] = useState(2);
+
+  // Steuert die Vollbildansicht des Checkouts.
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+
+  // Reagiert auf den Checkout-Button im Warenkorb.
+  useEffect(() => {
+    function openCheckout() {
+      setIsCheckoutOpen(true);
+    }
+
+    window.addEventListener("open-checkout", openCheckout);
+
+    return () => {
+      window.removeEventListener("open-checkout", openCheckout);
+    };
+  }, []);
 
   const deliveryFee =
     orderType === "delivery" ? calculateDeliveryFee(demoDistanceKm) : 0;
@@ -133,9 +149,55 @@ export default function CheckoutSection() {
   return (
     <section
       id="checkout"
-      className="mx-auto max-w-6xl scroll-mt-28 px-5 py-10"
+      aria-label="Bestellung abschließen"
+      className={`${
+        isCheckoutOpen
+          ? "fixed inset-0 z-[90] overflow-y-auto overscroll-contain bg-[#0C100D] px-5 pb-32 pt-6 text-[#F5F2E9]"
+          : "hidden"
+      }`}
     >
-      <h2 className="text-2xl font-bold">Bestellung abschließen</h2>
+      {/* Premium Checkout Header */}
+      <div className="mx-auto max-w-2xl">
+        {/* Navigation und Demo-Kennzeichnung */}
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setIsCheckoutOpen(false)}
+            className="flex min-h-11 items-center gap-3 text-sm font-bold text-white/80"
+          >
+            <span className="text-xl text-[#B5F28B]">←</span>
+            Zurück
+          </button>
+
+          <span className="rounded-full border border-[#B5F28B]/20 bg-[#B5F28B]/10 px-3 py-2 text-[10px] font-bold tracking-widest text-[#B5F28B]">
+            DEMO MODE
+          </span>
+        </div>
+
+        {/* Große Überschrift */}
+        <div className="mt-10">
+          <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#B5F28B]">
+            03 / Checkout
+          </p>
+
+          <h1 className="mt-4 text-[clamp(2.8rem,11vw,5rem)] font-black leading-[0.95] tracking-[-0.065em]">
+            FAST
+            <span className="block text-[#B5F28B]">GESCHAFFT.</span>
+          </h1>
+
+          <p className="mt-5 max-w-md text-sm leading-7 text-white/50">
+            Nur noch deine Angaben und dein Lieblingsessen kann zur Abholung
+            oder Lieferung vorbereitet werden.
+          </p>
+        </div>
+
+        {/* Fortschrittsanzeige – dekorativ für unsere Demo */}
+        <div aria-hidden="true" className="mt-8 grid grid-cols-3 gap-2">
+          <div className="h-1 rounded-full bg-[#B5F28B]" />
+          <div className="h-1 rounded-full bg-[#B5F28B]" />
+          <div className="h-1 rounded-full bg-white/10" />
+        </div>
+      </div>
 
       {/* Bestellart */}
       <div className="mt-6 grid grid-cols-2 gap-3">
@@ -156,61 +218,154 @@ export default function CheckoutSection() {
         ))}
       </div>
 
-      {/* Kontaktdaten */}
-      <div className="mt-8 space-y-3">
-        <h3 className="font-bold">Deine Kontaktdaten</h3>
+      {/* Premium-Kontaktdaten */}
+      <div className="mt-8">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#263D2B] text-xl text-[#B5F28B]">
+            ♙
+          </div>
 
-        <input
-          type="text"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder="Vor- und Nachname"
-          autoComplete="name"
-          className="w-full rounded-xl border border-white/10 bg-white/5 p-4 outline-none focus:border-[#9ACD87]"
-        />
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#B5F28B]">
+              Deine Angaben
+            </p>
+            <h3 className="mt-1 text-lg font-black">Kontaktdaten</h3>
+          </div>
+        </div>
 
-        <input
-          type="tel"
-          value={phone}
-          onChange={(event) => setPhone(event.target.value)}
-          placeholder="Telefonnummer"
-          autoComplete="tel"
-          className="w-full rounded-xl border border-white/10 bg-white/5 p-4 outline-none focus:border-[#9ACD87]"
-        />
+        <div className="space-y-5 rounded-2xl border border-white/10 bg-[#1C251E] p-5">
+          <div>
+            <label
+              htmlFor="customer-name"
+              className="mb-2 block text-xs font-semibold text-white/60"
+            >
+              Vollständiger Name
+            </label>
+
+            <input
+              id="customer-name"
+              type="text"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Max Mustermann"
+              autoComplete="name"
+              className="h-14 w-full rounded-xl border border-white/10 bg-[#0C100D] px-4 text-sm text-white outline-none transition focus:border-[#B5F28B]"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="customer-phone"
+              className="mb-2 block text-xs font-semibold text-white/60"
+            >
+              Telefonnummer
+            </label>
+
+            <input
+              id="customer-phone"
+              type="tel"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              placeholder="0151 12345678"
+              autoComplete="tel"
+              className="h-14 w-full rounded-xl border border-white/10 bg-[#0C100D] px-4 text-sm text-white outline-none transition focus:border-[#B5F28B]"
+            />
+          </div>
+        </div>
+
+        <p className="mt-3 flex items-center gap-2 text-xs text-white/40">
+          <span className="text-[#B5F28B]">✦</span>
+          Deine Angaben werden in dieser Demo nicht versendet.
+        </p>
       </div>
 
-      {/* Lieferadresse nur bei Lieferung */}
+      {/* Premium-Lieferadresse */}
       {orderType === "delivery" && (
-        <div className="mt-8 space-y-3">
-          <h3 className="font-bold">Lieferadresse</h3>
+        <div className="mt-8">
+          {/* Überschrift */}
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#263D2B] text-xl text-[#B5F28B]">
+              ⌖
+            </div>
 
-          <input
-            type="text"
-            value={street}
-            onChange={(event) => setStreet(event.target.value)}
-            placeholder="Straße und Hausnummer"
-            autoComplete="street-address"
-            className="w-full rounded-xl border border-white/10 bg-white/5 p-4 outline-none focus:border-[#9ACD87]"
-          />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#B5F28B]">
+                Wohin dürfen wir liefern?
+              </p>
+              <h3 className="mt-1 text-lg font-black">Lieferadresse</h3>
+            </div>
+          </div>
 
-          <input
-            type="text"
-            value={postalCode}
-            onChange={(event) => setPostalCode(event.target.value)}
-            placeholder="Postleitzahl"
-            autoComplete="postal-code"
-            inputMode="numeric"
-            className="w-full rounded-xl border border-white/10 bg-white/5 p-4 outline-none focus:border-[#9ACD87]"
-          />
+          {/* Adressfelder */}
+          <div className="space-y-5 rounded-2xl border border-white/10 bg-[#1C251E] p-5">
+            <div>
+              <label
+                htmlFor="delivery-street"
+                className="mb-2 block text-xs font-semibold text-white/60"
+              >
+                Straße und Hausnummer
+              </label>
 
-          <input
-            type="text"
-            value={city}
-            onChange={(event) => setCity(event.target.value)}
-            placeholder="Ort"
-            autoComplete="address-level2"
-            className="w-full rounded-xl border border-white/10 bg-white/5 p-4 outline-none focus:border-[#9ACD87]"
-          />
+              <input
+                id="delivery-street"
+                type="text"
+                value={street}
+                onChange={(event) => setStreet(event.target.value)}
+                placeholder="Musterstraße 12"
+                autoComplete="street-address"
+                className="h-14 w-full rounded-xl border border-white/10 bg-[#0C100D] px-4 text-sm text-white outline-none transition focus:border-[#B5F28B]"
+              />
+            </div>
+
+            {/* Postleitzahl und Ort nebeneinander */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label
+                  htmlFor="delivery-postal"
+                  className="mb-2 block text-xs font-semibold text-white/60"
+                >
+                  Postleitzahl
+                </label>
+
+                <input
+                  id="delivery-postal"
+                  type="text"
+                  inputMode="numeric"
+                  value={postalCode}
+                  onChange={(event) => setPostalCode(event.target.value)}
+                  placeholder="34621"
+                  autoComplete="postal-code"
+                  className="h-14 w-full min-w-0 rounded-xl border border-white/10 bg-[#0C100D] px-3 text-sm text-white outline-none transition focus:border-[#B5F28B]"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="delivery-city"
+                  className="mb-2 block text-xs font-semibold text-white/60"
+                >
+                  Ort
+                </label>
+
+                <input
+                  id="delivery-city"
+                  type="text"
+                  value={city}
+                  onChange={(event) => setCity(event.target.value)}
+                  placeholder="Frielendorf"
+                  autoComplete="address-level2"
+                  className="h-14 w-full min-w-0 rounded-xl border border-white/10 bg-[#0C100D] px-3 text-sm text-white outline-none transition focus:border-[#B5F28B]"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Erklärung für die Demo */}
+          <p className="mt-3 text-xs leading-5 text-white/40">
+            <span className="mr-2 text-[#B5F28B]">✦</span>
+            Die Liefergebühr wird in dieser Demo über die Entfernungsauswahl
+            bestimmt.
+          </p>
         </div>
       )}
 
@@ -256,66 +411,73 @@ export default function CheckoutSection() {
         </div>
       )}
 
-      {/* Bestellübersicht */}
-      <div className="mt-8 space-y-3 rounded-2xl border border-white/10 bg-white/5 p-5">
-        <div className="flex justify-between">
-          <span>Warenwert</span>
-          <span className="font-bold">
-            {totalPrice.toFixed(2).replace(".", ",")} €
-          </span>
+      {/* Premium-Bestellübersicht */}
+      <div className="mt-8">
+        <div className="mb-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#B5F28B]">
+            Fast geschafft
+          </p>
+          <h3 className="mt-2 text-xl font-black">Deine Bestellübersicht</h3>
         </div>
 
-        {/* Lieferkosten nur bei Lieferung */}
-        {orderType === "delivery" && (
-          <div className="flex justify-between">
-            <span>Lieferkosten (Demo)</span>
-            <span>
-              {deliveryFee === null
-                ? "Noch zu klären"
-                : `${deliveryFee.toFixed(2).replace(".", ",")} €`}
+        <div className="space-y-4 rounded-2xl border border-white/10 bg-[#1C251E] p-5">
+          {/* Warenwert */}
+          <div className="flex justify-between gap-3 text-sm">
+            <span className="text-white/60">Warenwert</span>
+            <span className="font-semibold">
+              {totalPrice.toFixed(2).replace(".", ",")} €
             </span>
           </div>
-        )}
 
-        {/* Gesamtbetrag inklusive Lieferkosten */}
-        <div className="flex justify-between border-t border-white/10 pt-3 font-bold">
-          <span>Gesamtbetrag</span>
-          <span className="text-[#9ACD87]">
-            {finalTotal.toFixed(2).replace(".", ",")} €
-          </span>
+          {/* Liefergebühren */}
+          {orderType === "delivery" && (
+            <div className="flex justify-between gap-3 text-sm">
+              <span className="text-white/60">Lieferkosten</span>
+              <span className="font-semibold">
+                {deliveryFee === null
+                  ? "Nicht verfügbar"
+                  : `${deliveryFee.toFixed(2).replace(".", ",")} €`}
+              </span>
+            </div>
+          )}
+
+          {/* Mindestbestellwert */}
+          {orderType === "delivery" && missingAmount > 0 && (
+            <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-xs leading-5 text-amber-300">
+              Noch {missingAmount.toFixed(2).replace(".", ",")} € bis zum
+              Mindestbestellwert von 20,00 €.
+            </div>
+          )}
+
+          {/* Gesamtbetrag */}
+          <div className="flex items-center justify-between gap-3 border-t border-white/10 pt-5">
+            <span className="font-bold">Gesamtbetrag</span>
+
+            <span className="text-2xl font-black text-[#B5F28B]">
+              {finalTotal.toFixed(2).replace(".", ",")} €
+            </span>
+          </div>
         </div>
-
-        {orderType === "delivery" && (
-          <>
-            <p className="text-xs text-white/50">Mindestbestellwert: 20,00 €</p>
-
-            {missingAmount > 0 && (
-              <p className="text-sm text-amber-400">
-                Noch {missingAmount.toFixed(2).replace(".", ",")} € bis zum
-                Mindestbestellwert.
-              </p>
-            )}
-
-            <p className="text-xs text-white/50">
-              Liefergebühren werden später anhand der Entfernung berechnet.
-            </p>
-          </>
-        )}
       </div>
 
-      {/* Noch kein echter Bestellabschluss */}
-
+      {/* Demo-Bestellung abschließen */}
       <button
         type="button"
         onClick={completeDemoOrder}
         disabled={
           !canContinue || (orderType === "delivery" && deliveryFee === null)
         }
-        className="mt-6 w-full rounded-2xl bg-[#9ACD87] p-4 font-bold text-[#101411] transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+        className="mt-6 flex min-h-16 w-full items-center justify-between gap-3 rounded-2xl bg-[#B5F28B] px-5 text-left font-black text-[#0C100D] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {canContinue
-          ? "Demo-Bestellung abschließen"
-          : "Angaben vervollständigen"}
+        <span>
+          {canContinue
+            ? "DEMO-BESTELLUNG ABSCHLIESSEN"
+            : "ANGABEN VERVOLLSTÄNDIGEN"}
+        </span>
+
+        <span className="text-2xl" aria-hidden="true">
+          →
+        </span>
       </button>
 
       <p className="mt-3 text-center text-xs text-white/40">
