@@ -35,3 +35,47 @@ body {
   overflow-y: auto;
 }
 
+
+/* =========================================
+   FRIELENDORFER – PREMIUM DESIGN SYSTEM
+   ========================================= */
+
+:root {
+  --background: #101411;
+  --surface: #1d2920;
+  --accent: #9acd87;
+  --foreground: #f5f1e8;
+  --muted: #9aab9d;
+}
+
+/* Globale Darstellung */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Textauswahl in Markenfarbe */
+::selection {
+  background: var(--accent);
+  color: var(--background);
+}
+
+/* Schöne Animation für interaktive Elemente */
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Reduzierte Animationen bei entsprechender Systemeinstellung */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+

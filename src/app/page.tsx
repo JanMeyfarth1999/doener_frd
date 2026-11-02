@@ -5,6 +5,7 @@ import MenuSection from "@/components/MenuSection";
 import { useOrder } from "@/context/OrderContext";
 import CartSection from "@/components/CartSection";
 import CheckoutSection from "@/components/CheckoutSection";
+import HeroSection from "@/components/HeroSection";
 
 export default function Home() {
   // Speichert, welche Bestellart ausgewählt wurde.
@@ -25,29 +26,8 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Begrüßung */}
-        <section className="mx-auto max-w-6xl px-5 pt-12">
-          <p className="text-sm font-medium text-[#9ACD87]">
-            Frisch zubereitet. Mit Liebe serviert.
-          </p>
-
-          <h2 className="mt-4 text-4xl font-black leading-tight tracking-tight">
-            DEIN HUNGER.
-            <span className="block text-[#9ACD87]">UNSERE LEIDENSCHAFT.</span>
-          </h2>
-
-          <p className="mt-5 max-w-md text-sm leading-7 text-white/60">
-            Entdecke unsere Dönergerichte, knusprigen Pizzen und viele weitere
-            Spezialitäten.
-          </p>
-
-          <a
-            href="#bestellen"
-            className="mt-8 inline-flex min-h-14 items-center justify-center rounded-2xl bg-[#9ACD87] px-8 font-bold text-[#101411] transition hover:bg-[#B5E3A4]"
-          >
-            Jetzt bestellen
-          </a>
-        </section>
+        {/* Neuer Premium-Hero */}
+        <HeroSection />
 
         {/* Auswahl zwischen Abholung und Lieferung */}
         <section className="mx-auto max-w-6xl px-5 pt-12">
