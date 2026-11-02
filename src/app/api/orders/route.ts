@@ -89,10 +89,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Erfolgreiche Bestellung bestätigen.
+
     return NextResponse.json(
       {
         orderId: data.id,
         status: data.status,
+
+        // Vom Server überprüfte Gerichte und Preise.
+        items: pricedOrder.items,
+        subtotal: pricedOrder.subtotal,
+
         total: Number(data.total),
       },
       {
