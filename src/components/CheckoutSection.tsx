@@ -110,20 +110,23 @@ export default function CheckoutSection() {
       }
 
       // Bestätigung mit der echten Datenbank-Bestellnummer.
+
       const completed: DemoOrder = {
+        // Echte Bestellnummer aus Supabase.
         orderNumber: result.orderId,
+
         customerName: name.trim(),
         orderType: "pickup",
 
-        items: items.map((item) => ({
-          id: item.id,
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-        })),
+        // Vom Server geprüfte Gerichte und Preise.
+        items: result.items,
 
-        subtotal: totalPrice,
+        // Vom Server berechneter Warenwert.
+        subtotal: result.subtotal,
+
         deliveryFee: 0,
+
+        // Endgültiger Gesamtbetrag.
         total: result.total,
       };
 

@@ -1,11 +1,9 @@
-
 // Mindestbestellwert bei Lieferung.
 export const DELIVERY_MINIMUM = 20;
-
+// Maximale Entfernung für Lieferungen in Kilometern.
+export const MAX_DELIVERY_DISTANCE_KM = 5;
 // Berechnet die Lieferkosten anhand der Entfernung.
-export function calculateDeliveryFee(
-  distanceKm: number
-): number | null {
+export function calculateDeliveryFee(distanceKm: number): number | null {
   // Ungültige Entfernungen abfangen.
   if (!Number.isFinite(distanceKm) || distanceKm < 0) {
     return null;
