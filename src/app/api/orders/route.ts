@@ -107,6 +107,59 @@ export async function POST(request: NextRequest) {
       .update(JSON.stringify(requestData))
       .digest("hex");
 
+      
+    // Datenbankverbindung bereits vor der Lieferadressprüfung herstellen.
+    const supabase = createSupabaseAdmin();
+
+    // Prüfen, ob diese Bestellkennung bereits gespeichert wurde.
+    const { data: existingOrder, error: lookupError } = await supabase
+      .from("orders")
+      .select(
+        "id, status, request_hash, items, subtotal, delivery_fee, total",
+      )
+      .eq("idempotency_key", idempotencyKey)
+      .maybeSingle();
+
+    // Bei einem Datenbankfehler keine weitere Bestellung anlegen.
+    if (lookupError) {
+      console.error("Fehler bei der Bestellprüfung:", lookupError.message);
+
+      return NextResponse.json(
+        { error: "Bestellung konnte nicht überprüft werden." },
+        { status: 503 },
+      );
+    }
+
+    if (existingOrder) {
+      // Dieselbe Kennung mit veränderten Bestelldaten ablehnen.
+      if (existingOrder.request_hash !== requestHash) {
+        return NextResponse.json(
+          {
+            error:
+              "Diese Bestellkennung wurde bereits für eine andere Bestellung verwendet.",
+          },
+          { status: 409 },
+        );
+      }
+
+      // Bereits gespeicherte Bestellung erneut bestätigen.
+      return NextResponse.json(
+        {
+          orderId: existingOrder.id,
+          status: existingOrder.status,
+          items: existingOrder.items,
+          subtotal: Number(existingOrder.subtotal),
+          deliveryFee: Number(existingOrder.delivery_fee),
+          total: Number(existingOrder.total),
+        },
+        {
+          status: 200,
+          headers: { "Cache-Control": "no-store" },
+        },
+      );
+    }
+
+
     // Standardwerte für Abholbestellungen.
     let deliveryFee = 0;
     let deliveryAddress: string | null = null;
@@ -170,8 +223,7 @@ export async function POST(request: NextRequest) {
     // Gesamtbetrag inklusive geprüfter Liefergebühr.
     const total = pricedOrder.subtotal + deliveryFee;
 
-    // Verbindung zur Supabase-Datenbank herstellen.
-    const supabase = createSupabaseAdmin();
+  
 
     // Geprüfte Bestellung dauerhaft speichern.
     const { data, error } = await supabase
