@@ -1,5 +1,59 @@
 import "server-only";
 
+
+// Speichert erfolgreich geprüfte Adressen im Server-Arbeitsspeicher.
+const addressCache = new Map<
+  string,
+  {
+    position: GeoPosition;
+    expiresAt: number;
+  }
+>();
+
+// Ergebnisse 24 Stunden aufbewahren.
+const CACHE_DURATION_MS = 24 * 60 * 60 * 1000;
+
+
+/**
+ * Einfache Begrenzung für unsere lokale Demo.
+ * Zwischen zwei externen Anfragen müssen mindestens
+ * 1.100 Millisekunden liegen.
+ */
+const MIN_REQUEST_INTERVAL_MS = 1100;
+
+// Zeitpunkt der letzten externen Anfrage.
+let lastRequestAt = 0;
+
+// Warteschlange für externe Geocoding-Anfragen.
+let requestQueue: Promise<void> = Promise.resolve();
+
+async function waitForGeocodingSlot(): Promise<void> {
+  const previousRequest = requestQueue;
+
+  let release!: () => void;
+
+  requestQueue = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  // Warten, bis die vorherige Anfrage ihren Platz freigibt.
+  await previousRequest;
+
+  const elapsed = Date.now() - lastRequestAt;
+  const remaining = Math.max(0, MIN_REQUEST_INTERVAL_MS - elapsed);
+
+  if (remaining > 0) {
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, remaining);
+    });
+  }
+
+  lastRequestAt = Date.now();
+  release();
+}
+
+
+
 /**
  * Vereinheitlicht Straßennamen für den Vergleich.
  *
@@ -47,6 +101,29 @@ export async function geocodeAddress(
     return null;
   }
 
+  
+// Eindeutigen Schlüssel für die Adresse erstellen.
+const cacheKey = [
+  street,
+  postalCode,
+  city,
+]
+  .map((value) => value.trim().toLowerCase())
+  .join("|");
+
+// Prüfen, ob diese Adresse bereits gespeichert ist.
+const cached = addressCache.get(cacheKey);
+
+if (cached) {
+  if (cached.expiresAt > Date.now()) {
+    return cached.position;
+  }
+
+  // Abgelaufenen Eintrag entfernen.
+  addressCache.delete(cacheKey);
+}
+
+
   const url = new URL("https://nominatim.openstreetmap.org/search");
 
   // Adresse für die Suche zusammensetzen.
@@ -59,6 +136,8 @@ export async function geocodeAddress(
   url.searchParams.set("addressdetails", "1");
   url.searchParams.set("countrycodes", "de");
   url.searchParams.set("limit", "1");
+
+  await waitForGeocodingSlot();
 
   const response = await fetch(url, {
     headers: {
@@ -135,5 +214,18 @@ export async function geocodeAddress(
     return null;
   }
 
-  return { latitude, longitude };
+  
+const position: GeoPosition = {
+  latitude,
+  longitude,
+};
+
+// Erfolgreiches Ergebnis zwischenspeichern.
+addressCache.set(cacheKey, {
+  position,
+  expiresAt: Date.now() + CACHE_DURATION_MS,
+});
+
+return position;
+
 }

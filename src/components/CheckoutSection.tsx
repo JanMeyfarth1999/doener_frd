@@ -20,6 +20,21 @@ export default function CheckoutSection() {
   const [postalCode, setPostalCode] = useState("");
   const [city, setCity] = useState("");
 
+  // Ergebnis der automatischen Lieferadressprüfung.
+  const [deliveryCheck, setDeliveryCheck] = useState<{
+    valid: boolean;
+    message: string;
+    distanceKm: number | null;
+    deliveryFee: number | null;
+  } | null>(null);
+
+  // Zeigt an, ob die Adresse gerade überprüft wird.
+  const [checkingDelivery, setCheckingDelivery] = useState(false);
+
+  // Verhindert, dass alte Prüfergebnisse nach einer
+  // Änderung der Adresse weiter als gültig gelten.
+  const [checkedAddress, setCheckedAddress] = useState("");
+
   // Speichert die abgeschlossene Demo-Bestellung.
   // null bedeutet: Es gibt noch keine Bestätigung.
   const [completedOrder, setCompletedOrder] = useState<DemoOrder | null>(null);
@@ -61,7 +76,18 @@ export default function CheckoutSection() {
   // Gesamtbetrag inklusive Liefergebühren.
   const finalTotal = totalPrice + (deliveryFee ?? 0);
 
+  // Das Prüfergebnis gilt nur für die unveränderte Adresse.
+  const currentAddressKey = JSON.stringify([
+    street.trim(),
+    postalCode.trim(),
+    city.trim(),
+  ]);
+
+  const currentDeliveryCheck =
+    checkedAddress === currentAddressKey ? deliveryCheck : null;
+
   // Prüfen, ob die Bestellung die Voraussetzungen erfüllt.
+
   const canContinue =
     items.length > 0 &&
     name.trim().length > 0 &&
@@ -70,11 +96,70 @@ export default function CheckoutSection() {
       (street.trim().length > 0 &&
         postalCode.trim().length > 0 &&
         city.trim().length > 0 &&
-        missingAmount === 0));
+        missingAmount === 0 &&
+        currentDeliveryCheck?.valid === true &&
+        currentDeliveryCheck.deliveryFee !== null));
 
-  // Übermittelt eine Abholbestellung an unsere geschützte Serverlogik.
+  // Prüft eine Lieferadresse über unsere Server-API.
+  async function checkDeliveryAddress() {
+    if (checkingDelivery) return;
+
+    setCheckingDelivery(true);
+    setDeliveryCheck(null);
+    setCheckedAddress("");
+
+    const addressKey = JSON.stringify([
+      street.trim(),
+      postalCode.trim(),
+      city.trim(),
+    ]);
+
+    try {
+      const response = await fetch("/api/delivery-check", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          street: street.trim(),
+          postalCode: postalCode.trim(),
+          city: city.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Die Adressprüfung ist momentan nicht verfügbar.");
+      }
+
+      const result = await response.json();
+
+      // Nur das Ergebnis der angefragten Adresse speichern.
+      setDeliveryCheck(result);
+      setCheckedAddress(addressKey);
+    } catch {
+      setDeliveryCheck({
+        valid: false,
+        message: "Die Adresse konnte nicht überprüft werden.",
+        distanceKm: null,
+        deliveryFee: null,
+      });
+      setCheckedAddress(addressKey);
+    } finally {
+      setCheckingDelivery(false);
+    }
+  }
+
+  // Übermittelt Abhol- und Lieferbestellungen an den Server.
   async function completeDemoOrder() {
-    if (!canContinue || isSubmitting || orderType !== "pickup") {
+    if (!canContinue || isSubmitting) return;
+
+    // Lieferadresse muss vorher erfolgreich geprüft worden sein.
+    if (
+      orderType === "delivery" &&
+      (!currentDeliveryCheck?.valid ||
+        currentDeliveryCheck.deliveryFee === null)
+    ) {
+      setSubmitError("Bitte zuerst die Lieferadresse überprüfen.");
       return;
     }
 
@@ -88,12 +173,20 @@ export default function CheckoutSection() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          orderType: "pickup",
+          orderType,
           name: name.trim(),
           phone: phone.trim(),
 
-          // Nur Produkt-IDs und Mengen senden.
-          // Der Server berechnet die Preise selbst.
+          // Lieferadresse nur bei Lieferung übermitteln.
+          ...(orderType === "delivery"
+            ? {
+                street: street.trim(),
+                postalCode: postalCode.trim(),
+                city: city.trim(),
+              }
+            : {}),
+
+          // Preise werden nicht vom Browser übernommen.
           items: items.map((item) => ({
             id: item.id,
             quantity: item.quantity,
@@ -109,28 +202,19 @@ export default function CheckoutSection() {
         );
       }
 
-      // Bestätigung mit der echten Datenbank-Bestellnummer.
-
+      // Die Bestätigung nutzt ausschließlich die Serverpreise.
       const completed: DemoOrder = {
-        // Echte Bestellnummer aus Supabase.
         orderNumber: result.orderId,
-
         customerName: name.trim(),
-        orderType: "pickup",
+        orderType,
 
-        // Vom Server geprüfte Gerichte und Preise.
         items: result.items,
-
-        // Vom Server berechneter Warenwert.
         subtotal: result.subtotal,
-
-        deliveryFee: 0,
-
-        // Endgültiger Gesamtbetrag.
+        deliveryFee: result.deliveryFee,
         total: result.total,
       };
 
-      // Bestätigung erst nach erfolgreicher Speicherung anzeigen.
+      // Erst nach erfolgreichem Speichern bestätigen.
       setCompletedOrder(completed);
     } catch (error) {
       setSubmitError(
@@ -391,6 +475,51 @@ export default function CheckoutSection() {
             </div>
           </div>
 
+          {/* Automatische Lieferadressprüfung */}
+          <div className="mt-5">
+            <button
+              type="button"
+              onClick={() => void checkDeliveryAddress()}
+              disabled={
+                checkingDelivery ||
+                !street.trim() ||
+                !postalCode.trim() ||
+                !city.trim()
+              }
+              className="w-full rounded-xl border border-[#B5F28B]/40 bg-[#263D2B] px-5 py-4 font-bold text-[#B5F28B] transition hover:bg-[#314B36] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {checkingDelivery
+                ? "Adresse wird überprüft..."
+                : "Lieferadresse überprüfen"}
+            </button>
+
+            {currentDeliveryCheck && (
+              <div
+                role="status"
+                className={`mt-4 rounded-xl border p-4 text-sm ${
+                  currentDeliveryCheck.valid
+                    ? "border-[#B5F28B]/30 bg-[#B5F28B]/10 text-[#B5F28B]"
+                    : "border-red-400/30 bg-red-400/10 text-red-300"
+                }`}
+              >
+                <p className="font-bold">{currentDeliveryCheck.message}</p>
+
+                {currentDeliveryCheck.valid && (
+                  <div className="mt-3 space-y-2">
+                    <p>
+                      Entfernung: {currentDeliveryCheck.distanceKm?.toFixed(2)}{" "}
+                      km
+                    </p>
+                    <p>
+                      Lieferkosten:{" "}
+                      {currentDeliveryCheck.deliveryFee?.toFixed(2)} €
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Erklärung für die Demo */}
           <p className="mt-3 text-xs leading-5 text-white/40">
             <span className="mr-2 text-[#B5F28B]">✦</span>
@@ -495,7 +624,7 @@ export default function CheckoutSection() {
       <button
         type="button"
         onClick={() => void completeDemoOrder()}
-        disabled={!canContinue || isSubmitting || orderType !== "pickup"}
+        disabled={!canContinue || isSubmitting}
         className="mt-6 flex min-h-16 w-full items-center justify-between gap-3 rounded-2xl bg-[#B5F28B] px-5 text-left font-black text-[#0C100D] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
       >
         <span>

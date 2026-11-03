@@ -1,9 +1,13 @@
 import { checkDeliveryArea } from "@/lib/deliveryArea";
 import { validateDeliveryAddress } from "@/lib/validateDeliveryAddress";
+import { connection } from "next/server";
+import { Suspense } from "react";
 
-export default async function DeliveryTestPage() {
+async function DeliveryTestContent() {
+  // Adressprüfung erst bei einer tatsächlichen Anfrage ausführen.
+  await connection();
   // Test 1: Gleiche Position wie das Restaurant.
-  const nearby = checkDeliveryArea(50.9684066, 9.32409477);
+  const nearby = checkDeliveryArea(50.975458, 9.3240881);
 
   // Test 2: Eine deutlich weiter entfernte Position.
   const farAway = checkDeliveryArea(51.1, 9.5);
@@ -77,5 +81,19 @@ export default async function DeliveryTestPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function DeliveryTestPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#0C100D] p-8 text-white">
+          <p className="text-[#B5F28B]">Liefergebiet wird überprüft...</p>
+        </main>
+      }
+    >
+      <DeliveryTestContent />
+    </Suspense>
   );
 }
