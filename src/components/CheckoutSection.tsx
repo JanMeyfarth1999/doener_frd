@@ -44,8 +44,11 @@ export default function CheckoutSection() {
   // Verhindert doppelte Bestellungen während des Speicherns.
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Verhindert mehrere gleichzeitige Bestellanfragen.
+  // Verhindert mehrere gleichzeitige Bestellanfragen.
   const submittingRef = useRef(false);
+  
+  // Speichert die eindeutige Kennung der aktuellen Bestellung.
+  const orderIdempotencyKeyRef = useRef<string | null>(null);
 
   // Zeigt Fehler beim Abschicken an.
   const [submitError, setSubmitError] = useState("");
@@ -54,8 +57,6 @@ export default function CheckoutSection() {
   const minimumOrder = DELIVERY_MINIMUM;
 
   const missingAmount = Math.max(0, minimumOrder - totalPrice);
-
-
 
   // Steuert die Vollbildansicht des Checkouts.
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -73,10 +74,6 @@ export default function CheckoutSection() {
     };
   }, []);
 
-
-
-
-
   // Das Prüfergebnis gilt nur für die unveränderte Adresse.
   const currentAddressKey = JSON.stringify([
     street.trim(),
@@ -87,7 +84,6 @@ export default function CheckoutSection() {
   const currentDeliveryCheck =
     checkedAddress === currentAddressKey ? deliveryCheck : null;
 
-    
   // Lieferkosten ausschließlich aus der geprüften Adresse übernehmen.
   const deliveryFee =
     orderType === "pickup"
@@ -175,10 +171,14 @@ export default function CheckoutSection() {
       setSubmitError("Bitte zuerst die Lieferadresse überprüfen.");
       return;
     }
-    
+
     // Bestellanfrage sofort sperren.
     submittingRef.current = true;
 
+    // Neue Kennung nur erzeugen, wenn noch keine vorhanden ist.
+    if (!orderIdempotencyKeyRef.current) {
+      orderIdempotencyKeyRef.current = crypto.randomUUID();
+    }
 
     setIsSubmitting(true);
     setSubmitError("");
@@ -190,6 +190,7 @@ export default function CheckoutSection() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          idempotencyKey: orderIdempotencyKeyRef.current,
           orderType,
           name: name.trim(),
           phone: phone.trim(),
@@ -239,7 +240,7 @@ export default function CheckoutSection() {
           ? error.message
           : "Bestellung konnte nicht abgeschickt werden.",
       );
-     } finally {
+    } finally {
       // Sperre nach Abschluss der Anfrage wieder freigeben.
       submittingRef.current = false;
       setIsSubmitting(false);
@@ -248,6 +249,8 @@ export default function CheckoutSection() {
 
   // Setzt die Demo für eine neue Bestellung zurück.
   function startNewOrder() {
+    // Eine neue Bestellung erhält später eine neue Kennung.
+    orderIdempotencyKeyRef.current = null;
     // Warenkorb leeren.
     clearCart();
 
@@ -409,7 +412,8 @@ export default function CheckoutSection() {
 
         <p className="mt-3 flex items-center gap-2 text-xs text-white/40">
           <span className="text-[#B5F28B]">✦</span>
-          Deine Angaben werden in dieser Demo nicht versendet.
+          Testbetrieb: Deine Angaben werden zur Bearbeitung der Testbestellung
+          gespeichert.
         </p>
       </div>
 
@@ -542,8 +546,8 @@ export default function CheckoutSection() {
           {/* Erklärung für die Demo */}
           <p className="mt-3 text-xs leading-5 text-white/40">
             <span className="mr-2 text-[#B5F28B]">✦</span>
-            Die Liefergebühr wird in dieser Demo über die Entfernungsauswahl
-            bestimmt.
+            Die Lieferkosten werden automatisch anhand deiner geprüften
+            Lieferadresse berechnet.
           </p>
         </div>
       )}
@@ -557,8 +561,6 @@ export default function CheckoutSection() {
           </p>
         </div>
       )}
-
-
 
       {/* Premium-Bestellübersicht */}
       <div className="mt-8">
@@ -619,11 +621,9 @@ export default function CheckoutSection() {
         <span>
           {isSubmitting
             ? "BESTELLUNG WIRD GESPEICHERT..."
-            : orderType === "delivery"
-              ? "LIEFERUNG NOCH NICHT VERFÜGBAR"
-              : canContinue
-                ? "TESTBESTELLUNG ABSCHICKEN"
-                : "ANGABEN VERVOLLSTÄNDIGEN"}
+            : canContinue
+              ? "TESTBESTELLUNG ABSCHICKEN"
+              : "ANGABEN VERVOLLSTÄNDIGEN"}
         </span>
 
         <span className="text-2xl" aria-hidden="true">
