@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useCart } from "@/context/CartContext";
 import { useOrder } from "@/context/OrderContext";
-import { calculateDeliveryFee, DELIVERY_MINIMUM } from "@/lib/delivery";
+
+import { DELIVERY_MINIMUM } from "@/lib/delivery";
+
 import OrderConfirmation, {
   type DemoOrder,
 } from "@/components/OrderConfirmation";
@@ -42,6 +44,9 @@ export default function CheckoutSection() {
   // Verhindert doppelte Bestellungen während des Speicherns.
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // Verhindert mehrere gleichzeitige Bestellanfragen.
+  const submittingRef = useRef(false);
+
   // Zeigt Fehler beim Abschicken an.
   const [submitError, setSubmitError] = useState("");
 
@@ -50,9 +55,7 @@ export default function CheckoutSection() {
 
   const missingAmount = Math.max(0, minimumOrder - totalPrice);
 
-  // Entfernung für die Demo auswählen.
-  // Später wird sie automatisch aus der Adresse berechnet.
-  const [demoDistanceKm, setDemoDistanceKm] = useState(2);
+
 
   // Steuert die Vollbildansicht des Checkouts.
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -70,11 +73,9 @@ export default function CheckoutSection() {
     };
   }, []);
 
-  const deliveryFee =
-    orderType === "delivery" ? calculateDeliveryFee(demoDistanceKm) : 0;
 
-  // Gesamtbetrag inklusive Liefergebühren.
-  const finalTotal = totalPrice + (deliveryFee ?? 0);
+
+
 
   // Das Prüfergebnis gilt nur für die unveränderte Adresse.
   const currentAddressKey = JSON.stringify([
@@ -85,6 +86,18 @@ export default function CheckoutSection() {
 
   const currentDeliveryCheck =
     checkedAddress === currentAddressKey ? deliveryCheck : null;
+
+    
+  // Lieferkosten ausschließlich aus der geprüften Adresse übernehmen.
+  const deliveryFee =
+    orderType === "pickup"
+      ? 0
+      : currentDeliveryCheck?.valid
+        ? currentDeliveryCheck.deliveryFee
+        : null;
+
+  // Gesamtbetrag inklusive Liefergebühren.
+  const finalTotal = totalPrice + (deliveryFee ?? 0);
 
   // Prüfen, ob die Bestellung die Voraussetzungen erfüllt.
 
@@ -151,7 +164,7 @@ export default function CheckoutSection() {
 
   // Übermittelt Abhol- und Lieferbestellungen an den Server.
   async function completeDemoOrder() {
-    if (!canContinue || isSubmitting) return;
+    if (!canContinue || submittingRef.current) return;
 
     // Lieferadresse muss vorher erfolgreich geprüft worden sein.
     if (
@@ -162,6 +175,10 @@ export default function CheckoutSection() {
       setSubmitError("Bitte zuerst die Lieferadresse überprüfen.");
       return;
     }
+    
+    // Bestellanfrage sofort sperren.
+    submittingRef.current = true;
+
 
     setIsSubmitting(true);
     setSubmitError("");
@@ -222,7 +239,9 @@ export default function CheckoutSection() {
           ? error.message
           : "Bestellung konnte nicht abgeschickt werden.",
       );
-    } finally {
+     } finally {
+      // Sperre nach Abschluss der Anfrage wieder freigeben.
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   }
@@ -539,37 +558,7 @@ export default function CheckoutSection() {
         </div>
       )}
 
-      {/* Lieferentfernung für die Demo auswählen */}
-      {orderType === "delivery" && (
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5">
-          <h3 className="font-bold">Lieferentfernung</h3>
 
-          <p className="mt-2 text-xs text-white/50">
-            Demo-Auswahl: Später automatisch anhand der Adresse.
-          </p>
-
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            {[
-              { distance: 2, label: "Bis 2 km" },
-              { distance: 3, label: "Ab 3 km" },
-            ].map((option) => (
-              <button
-                key={option.distance}
-                type="button"
-                onClick={() => setDemoDistanceKm(option.distance)}
-                aria-pressed={demoDistanceKm === option.distance}
-                className={`rounded-xl border px-2 py-3 text-sm font-semibold transition ${
-                  demoDistanceKm === option.distance
-                    ? "border-[#9ACD87] bg-[#263D2B] text-[#9ACD87]"
-                    : "border-white/10 bg-white/5 text-white"
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Premium-Bestellübersicht */}
       <div className="mt-8">
